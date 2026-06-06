@@ -29,10 +29,16 @@ jobs:
         # Performance & cost optimization: Caches dependencies to speed up subsequent runs
         cache: 'maven'
 
-    - name: Build, test, and generate JaCoCo coverage
-      run: mvn -B clean test jacoco:report package --file pom.xml
+    - name: Build
+      run: mvn -B clean compile package -DskipTests --file pom.xml
 
-    - name: Post JaCoCo report to PR
+    - name: Test
+      run: mvn -B test --file pom.xml
+
+    - name: Generate JaCoCo coverage report
+      run: mvn -B jacoco:report --file pom.xml
+
+    - name: Update PR coverage comment
       if: github.event_name == 'pull_request'
       uses: madrapps/jacoco-report@v1.6.1
       with:
