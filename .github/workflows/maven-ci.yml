@@ -2,9 +2,9 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [ "develop" ]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -34,23 +34,26 @@ jobs:
         cache: 'maven'
 
     - name: Step 1 - Build with test
-      run: mvn -B clean test jacoco:report package --file pom.xml
+      run: mvn -B clean verify --file pom.xml
 
-    - name: Step 2 - Verify JaCoCo coverage report
+    - name: Step 2 - Verify JaCoCo coverage reports
       run: |
-        test -f target/site/jacoco/jacoco.xml
-        echo "JaCoCo report ready at target/site/jacoco/jacoco.xml"
+        test -f user-module/target/site/jacoco/jacoco.xml
+        test -f account-module/target/site/jacoco/jacoco.xml
+        echo "JaCoCo reports ready for user-module and account-module"
 
     - name: Step 3 - Update PR coverage comment
       if: github.event_name == 'pull_request'
       uses: madrapps/jacoco-report@v1.6.1
       with:
-        paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        paths: |
+          ${{ github.workspace }}/user-module/target/site/jacoco/jacoco.xml
+          ${{ github.workspace }}/account-module/target/site/jacoco/jacoco.xml
         token: ${{ secrets.GITHUB_TOKEN }}
         pr-number: ${{ github.event.pull_request.number }}
         title: Code Coverage Report
         update-comment: true
         comment-type: both
-        min-coverage-overall: 10
+        min-coverage-overall: 50
         min-coverage-changed-files: 0
         debug-mode: true
