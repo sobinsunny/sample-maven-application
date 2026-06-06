@@ -2,42 +2,51 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "develop" ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    # Cost control: Kills the job if it hangs, protecting the monthly free minutes
     timeout-minutes: 10
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up JDK
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-        # Performance & cost optimization: Caches dependencies to speed up subsequent runs
         cache: 'maven'
 
-    - name: Build, test, and generate JaCoCo coverage
-      run: mvn -B clean test jacoco:report package --file pom.xml
+    - name: Step 1 - Build with test
+      run: mvn -B clean verify --file pom.xml
 
-    - name: Upload JaCoCo coverage report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: jacoco-coverage-report
-        path: target/site/jacoco/
-        retention-days: 7
-
-    - name: Display coverage results
-      if: always()
+    - name: Step 2 - Verify JaCoCo coverage reports
       run: |
-        echo "Coverage report generated at: target/site/jacoco/index.html"
-        echo "Test reports available at: target/surefire-reports/"
+        test -f user-module/target/site/jacoco/jacoco.xml
+        test -f account-module/target/site/jacoco/jacoco.xml
+        echo "JaCoCo reports ready for user-module and account-module"
+
+    - name: Step 3 - Publish module coverage comment on PR
+      if: github.event_name == 'pull_request'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        MIN_COVERAGE: "50"
+      run: python3 .github/scripts/publish-coverage-comment.py
