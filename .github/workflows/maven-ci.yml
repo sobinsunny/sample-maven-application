@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,6 +31,17 @@ jobs:
 
     - name: Build, test, and generate JaCoCo coverage
       run: mvn -B clean test jacoco:report package --file pom.xml
+
+    - name: Post JaCoCo report to PR
+      if: github.event_name == 'pull_request'
+      uses: madrapps/jacoco-report@v1.6.1
+      with:
+        paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
+        token: ${{ secrets.GITHUB_TOKEN }}
+        title: Code Coverage Report
+        update-comment: true
+        min-coverage-overall: 10
+        min-coverage-changed-files: 10
 
     - name: Upload JaCoCo coverage report
       uses: actions/upload-artifact@v4
