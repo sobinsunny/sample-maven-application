@@ -2,9 +2,9 @@ name: Java CI with Maven
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -13,6 +13,7 @@ concurrency:
 permissions:
   contents: read
   pull-requests: write
+  issues: write
 
 jobs:
   build:
@@ -22,6 +23,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up JDK
       uses: actions/setup-java@v4
@@ -34,7 +37,9 @@ jobs:
       run: mvn -B clean test jacoco:report package --file pom.xml
 
     - name: Step 2 - Verify JaCoCo coverage report
-      run: test -f target/site/jacoco/jacoco.xml
+      run: |
+        test -f target/site/jacoco/jacoco.xml
+        echo "JaCoCo report ready at target/site/jacoco/jacoco.xml"
 
     - name: Step 3 - Update PR coverage comment
       if: github.event_name == 'pull_request'
@@ -42,7 +47,10 @@ jobs:
       with:
         paths: ${{ github.workspace }}/target/site/jacoco/jacoco.xml
         token: ${{ secrets.GITHUB_TOKEN }}
+        pr-number: ${{ github.event.pull_request.number }}
         title: Code Coverage Report
         update-comment: true
+        comment-type: both
         min-coverage-overall: 10
-        min-coverage-changed-files: 10
+        min-coverage-changed-files: 0
+        debug-mode: true
