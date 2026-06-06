@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ "main" ]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
   pull-requests: write
@@ -13,8 +17,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-
-    # Cost control: Kills the job if it hangs, protecting the monthly free minutes
     timeout-minutes: 10
 
     steps:
@@ -26,19 +28,15 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-        # Performance & cost optimization: Caches dependencies to speed up subsequent runs
         cache: 'maven'
 
-    - name: Build
-      run: mvn -B clean compile package -DskipTests --file pom.xml
+    - name: Step 1 - Build with test
+      run: mvn -B clean test jacoco:report package --file pom.xml
 
-    - name: Test
-      run: mvn -B test --file pom.xml
+    - name: Step 2 - Verify JaCoCo coverage report
+      run: test -f target/site/jacoco/jacoco.xml
 
-    - name: Generate JaCoCo coverage report
-      run: mvn -B jacoco:report --file pom.xml
-
-    - name: Update PR coverage comment
+    - name: Step 3 - Update PR coverage comment
       if: github.event_name == 'pull_request'
       uses: madrapps/jacoco-report@v1.6.1
       with:
@@ -48,17 +46,3 @@ jobs:
         update-comment: true
         min-coverage-overall: 10
         min-coverage-changed-files: 10
-
-    - name: Upload JaCoCo coverage report
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: jacoco-coverage-report
-        path: target/site/jacoco/
-        retention-days: 7
-
-    - name: Display coverage results
-      if: always()
-      run: |
-        echo "Coverage report generated at: target/site/jacoco/index.html"
-        echo "Test reports available at: target/surefire-reports/"
