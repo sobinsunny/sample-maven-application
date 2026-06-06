@@ -1,0 +1,43 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Cost control: Kills the job if it hangs, protecting the monthly free minutes
+    timeout-minutes: 10
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        # Performance & cost optimization: Caches dependencies to speed up subsequent runs
+        cache: 'maven'
+
+    - name: Build, test, and generate JaCoCo coverage
+      run: mvn -B clean test jacoco:report package --file pom.xml
+
+    - name: Upload JaCoCo coverage report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: jacoco-coverage-report
+        path: target/site/jacoco/
+        retention-days: 7
+
+    - name: Display coverage results
+      if: always()
+      run: |
+        echo "Coverage report generated at: target/site/jacoco/index.html"
+        echo "Test reports available at: target/surefire-reports/"
